@@ -144,12 +144,11 @@ class QueryRequest(BaseModel):
     language: str = "python"  # Default to Python
 
 
-@app.post("/query")
-async def query(request: QueryRequest):
-    """Handles developer queries and provides API documentation or code samples."""
+async def generate_response_from_query(query: str):
+    """Helper function to generate responses using FAISS search and OpenAI's GPT-4"""
     try:
         # Generate embedding for the query
-        query_embedding = model.encode([request.query])
+        query_embedding = model.encode([query])
 
         # Load the FAISS index and titles/documents
         index = faiss.read_index('creditchek_index.faiss')
@@ -163,13 +162,22 @@ async def query(request: QueryRequest):
 
         # Get the titles of the top 3 documents
         top_docs = [titles[i] for i in I[0]]
-        
+
         # Generate response using OpenAI's GPT-4 to answer the query based on the top documents
         docs_text = "\n".join([documents[i] for i in I[0]])
-        response = llm(f"Answer the following query using these documents: {docs_text}\n\nQuery: {request.query}")
+        response = llm(f"Answer the following query using these documents: {docs_text}\n\nQuery: {query}")
+        return response
 
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/query")
+async def query(request: QueryRequest):
+    """Handles developer queries and provides API documentation or code samples."""
+    try:
+        response = await generate_response_from_query(request.query)
         return {"response": response}
-
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -178,12 +186,14 @@ async def query(request: QueryRequest):
 async def generate_code(request: QueryRequest):
     """Generates API integration code in the specified programming language."""
     try:
-        # Generate code sample using OpenAI GPT-4 based on the query
-        prompt = f"Generate a {request.language} API integration code snippet for: {request.query}"
-        code_response = llm(prompt)
-        return {"code": code_response}
+        # Generate a code sample using OpenAI's GPT-4 based on the query
+        code_query = f"Generate a {request.language} API integration code snippet for: {request.query}"
+        response = await generate_response_from_query(code_query)
+        return {"code": response}
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 
 if __name__ == "__main__":
