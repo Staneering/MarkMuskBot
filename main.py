@@ -163,7 +163,7 @@ async def query(request: QueryRequest):
 
         # Get the titles of the top 3 documents
         top_docs = [titles[i] for i in I[0]]
-
+        
         # Generate response using OpenAI's GPT-4 to answer the query based on the top documents
         docs_text = "\n".join([documents[i] for i in I[0]])
         response = llm(f"Answer the following query using these documents: {docs_text}\n\nQuery: {request.query}")
